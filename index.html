@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Road2Masters — Learning Roadmap</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="formPage">
+  <video class="login-video" autoplay muted loop playsinline>
+    <source src="bg.mp4" type="video/mp4">
+  </video>
+  <div class="login-overlay"></div>
+  <div class="form-container">
+    <div class="form-left">
+      <div class="form-brand">
+        <img src="https://img.icons8.com/ios-filled/36/3b6fd4/graduation-cap.png" alt="logo">
+        <span class="brand-name">Road2Masters</span>
+      </div>
+      <h1 class="form-headline">Plan Your<br><span class="accent">Learning Roadmap</span></h1>
+      <p class="form-sub">A structured learning roadmap for students at every level. Pick your domain, follow the path, and build real skills — one step at a time!</p>
+      <div class="form-stats">
+        <div class="stat"><span class="stat-num">5</span><span class="stat-label">Domains</span></div>
+        <div class="stat"><span class="stat-num">15+</span><span class="stat-label">Tracks</span></div>
+        <div class="stat"><span class="stat-num">Free</span><span class="stat-label">Access</span></div>
+      </div>
+    </div>
+    <div class="form-right">
+      <div class="form-card">
+        <h2>Create Your Profile</h2>
+        <p class="form-card-sub">Your personalized dashboard awaits..!</p>
+        <div class="input-group">
+          <label>Full Name</label>
+          <input type="text" id="name" placeholder="Enter your name" autocomplete="off">
+        </div>
+        <div class="input-group">
+          <label>Email Address</label>
+          <input type="text" id="email" placeholder="Enter your mail id" autocomplete="off">
+        </div>
+        <div class="input-group">
+          <label>Phone Number</label>
+          <input type="text" id="phone" placeholder="Enter your mobile number" autocomplete="off">
+        </div>
+        <p id="error"></p>
+        <button class="submit-btn" onclick="validateForm()">
+          Access Dashboard
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+        <p class="form-note">Your data stays local. No account required.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div id="mainPage" style="display:none;">
+
+  <!-- TICKER -->
+  <div class="ticker-wrap">
+    <div class="ticker-track">
+      <span>Follow us on Instagram <strong>@road2masters</strong> for weekly resource drops &nbsp;&bull;&nbsp;</span>
+      <span>New Master's track: <strong>Generative AI &amp; LLMs</strong> — Coming Soon &nbsp;&bull;&nbsp;</span>
+      <span>Workshop: <strong>Research Methodology for CS Graduates</strong> — Register Now &nbsp;&bull;&nbsp;</span>
+      <span>Study Groups now open — Join your domain group today &nbsp;&bull;&nbsp;</span>
+      <span>Follow us on Instagram <strong>@road2masters</strong> for weekly resource drops &nbsp;&bull;&nbsp;</span>
+      <span>New Master's track: <strong>Generative AI &amp; LLMs</strong> — Coming Soon &nbsp;&bull;&nbsp;</span>
+      <span>Workshop: <strong>Research Methodology for CS Graduates</strong> — Register Now &nbsp;&bull;&nbsp;</span>
+      <span>Study Groups now open — Join your domain group today &nbsp;&bull;&nbsp;</span>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <header class="main-header">
+    <div class="header-left">
+      <img src="https://img.icons8.com/ios-filled/26/3b6fd4/graduation-cap.png" alt="logo">
+      <span class="brand-name">Road2Masters</span>
+      <span class="header-tag">Learning Roadmap Portal</span>
+    </div>
+    <nav class="header-nav">
+      <a href="#" class="nav-link active">Dashboard</a>
+      <a href="#" class="nav-link">Resources</a>
+      <a href="#" class="nav-link">Community</a>
+      <a href="#" class="nav-link">About</a>
+    </nav>
+    <div class="header-right">
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" id="themeBtn">
+        <svg class="icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+      <div class="user-pill">
+        <div class="user-avatar" id="userAvatar">A</div>
+        <span id="welcomeMsg">Welcome</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-label">Domains</div>
+      <div class="domain-list">
+        <div class="domain-item" onclick="loadDomain('web')"    data-domain="web">
+          <img src="https://img.icons8.com/ios/18/8892a4/internet.png" class="d-icon" alt="">
+          <span class="domain-name">Web Development</span><span class="domain-arrow">&#8250;</span>
+        </div>
+        <div class="domain-item" onclick="loadDomain('ai')"     data-domain="ai">
+          <img src="https://img.icons8.com/ios/18/8892a4/artificial-intelligence.png" class="d-icon" alt="">
+          <span class="domain-name">Artificial Intelligence</span><span class="domain-arrow">&#8250;</span>
+        </div>
+        <div class="domain-item" onclick="loadDomain('cyber')"  data-domain="cyber">
+          <img src="https://img.icons8.com/ios/18/8892a4/lock-2.png" class="d-icon" alt="">
+          <span class="domain-name">Cybersecurity</span><span class="domain-arrow">&#8250;</span>
+        </div>
+        <div class="domain-item" onclick="loadDomain('data')"   data-domain="data">
+          <img src="https://img.icons8.com/ios/18/8892a4/bar-chart.png" class="d-icon" alt="">
+          <span class="domain-name">Data Science</span><span class="domain-arrow">&#8250;</span>
+        </div>
+        <div class="domain-item" onclick="loadDomain('mobile')" data-domain="mobile">
+          <img src="https://img.icons8.com/ios/18/8892a4/smartphone-tablet.png" class="d-icon" alt="">
+          <span class="domain-name">Mobile App Development</span><span class="domain-arrow">&#8250;</span>
+        </div>
+      </div>
+      <div class="sidebar-quote">
+        <p>"Mastery is not a perfection, it's a journey, and the journey is involves being a continuous learner."</p>
+        <span>— Brian Herbert</span>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content" id="roadmapContent">
+      <div class="welcome-splash">
+        <!-- Hero image -->
+        <div class="splash-hero">
+          <img src="hero.png" alt="Students learning" class="splash-hero-img">
+          <div class="splash-hero-overlay">
+            <h2>Welcome to Your Learning Dashboard</h2>
+            <p>A structured learning roadmap — milestones, notes, and curated resources, all in one place.</p>
+          </div>
+        </div>
+        <!-- Domain quick-pick cards with images -->
+        <div class="splash-domain-grid">
+          <div class="splash-domain-card" onclick="loadDomain('web')">
+            <img src="web.png" alt="Web Development">
+            <span>Web Development</span>
+          </div>
+          <div class="splash-domain-card" onclick="loadDomain('ai')">
+            <img src="ai.png" alt="Artificial Intelligence">
+            <span>Artificial Intelligence</span>
+          </div>
+          <div class="splash-domain-card" onclick="loadDomain('cyber')">
+            <img src="cyber.png" alt="Cybersecurity">
+            <span>Cybersecurity</span>
+          </div>
+          <div class="splash-domain-card" onclick="loadDomain('data')">
+            <img src="data.png" alt="Data Science">
+            <span>Data Science</span>
+          </div>
+          <div class="splash-domain-card" onclick="loadDomain('mobile')">
+            <img src="mobile.png" alt="Mobile App Development">
+            <span>Mobile App Development</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- RIGHT PANEL -->
+    <aside class="right-panel">
+      <div class="panel-domain-card">
+        <div class="domain-card-img">
+          <img id="domainCardImg" src="hero.png" alt="domain" style="width:100%;height:100%;object-fit:cover;opacity:0.85;">
+        </div>
+        <div class="domain-card-info">
+          <span class="dc-tag" id="domainCardTag">Select a Domain</span>
+          <h3 id="domainCardTitle">Road2Masters</h3>
+          <p id="domainCardDesc">Your academic journey starts here.</p>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-section-header">
+          <span>Milestone Tracker</span>
+          <button class="reset-btn" onclick="resetProgress()">Reset</button>
+        </div>
+        <div class="circular-wrap">
+          <svg class="circle-svg" viewBox="0 0 80 80">
+            <circle class="circle-bg"   cx="40" cy="40" r="34"/>
+            <circle class="circle-fill" cx="40" cy="40" r="34" id="circleFill"
+              stroke-dasharray="213.6" stroke-dashoffset="213.6"/>
+          </svg>
+          <div class="circle-label">
+            <span id="circlePercent">0%</span>
+            <small>done</small>
+          </div>
+        </div>
+        <div id="todoList" class="todo-list"></div>
+      </div>
+    </aside>
+
+  </div><!-- end .app-layout -->
+
+  <!-- FOOTER -->
+  <footer class="main-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div class="brand-row">
+          <img src="https://img.icons8.com/ios-filled/18/3b6fd4/graduation-cap.png" alt="">
+          <span class="brand-name">Road2Masters</span>
+        </div>
+        <p>Empowering students with structured, domain-specific learning roadmaps.</p>
+      </div>
+      <div class="footer-links">
+        <h4>Platform</h4>
+        <a href="#">Learning Tracks</a><a href="#">Resources</a><a href="#">Community</a>
+      </div>
+      <div class="footer-links">
+        <h4>Connect</h4>
+        <a href="#">contact@road2masters.com</a>
+        <a href="#">+91 6305831509</a>
+        <a href="#">@road2masters</a>
+      </div>
+      <div class="footer-links">
+        <h4>Legal</h4>
+        <a href="#">Privacy Policy</a><a href="#">Terms of Use</a><a href="#">Academic Integrity</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Road2Masters. All rights reserved. &nbsp;|&nbsp; <i>A place to learn, a chance to grow.</i></p>
+    </div>
+  </footer>
+</div>
+
+
+<div id="notesModal" class="modal-overlay" onclick="closeModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="notesModalTitle">Notes</h3>
+      <button class="modal-close" onclick="closeNotesModal()">&#10005;</button>
+    </div>
+    <div class="color-row">
+      <button class="swatch active" data-color="#fff9c4" onclick="setStickyColor('#fff9c4',this)" style="background:#fff9c4;" title="Yellow"></button>
+      <button class="swatch"        data-color="#c8e6c9" onclick="setStickyColor('#c8e6c9',this)" style="background:#c8e6c9;" title="Green"></button>
+      <button class="swatch"        data-color="#bbdefb" onclick="setStickyColor('#bbdefb',this)" style="background:#bbdefb;" title="Blue"></button>
+      <span class="color-hint">Pick a note colour</span>
+    </div>
+    <textarea id="notesArea" placeholder="Write your notes here..."></textarea>
+    <div class="modal-actions">
+      <button class="modal-save" onclick="saveNote()">Save Note</button>
+      <span id="noteSavedMsg">Saved</span>
+    </div>
+  </div>
+</div>
+
+
+<div id="videoModal" class="modal-overlay" onclick="closeModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="videoModalTitle">Video Resources</h3>
+      <button class="modal-close" onclick="closeVideoModal()">&#10005;</button>
+    </div>
+    <div id="videoList" class="video-list"></div>
+  </div>
+</div>
+
+
+<div id="queryModal" class="modal-overlay" onclick="closeModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="queryModalTitle">Ask a Doubt</h3>
+      <button class="modal-close" onclick="closeQueryModal()">&#10005;</button>
+    </div>
+    <p class="modal-sub">Your doubt will be reviewed by a mentor and answered as soon as possible.</p>
+    <div class="input-group">
+      <label>Your Name</label>
+      <input type="text" id="queryName" placeholder="Enter your name">
+    </div>
+    <div class="input-group">
+      <label>Your Question</label>
+      <textarea id="queryText" rows="4" placeholder="Describe your doubt clearly..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-save" onclick="submitQuery()">Submit Doubt</button>
+      <span id="queryMsg" class="success-msg">Submitted! Mentor will respond soon.</span>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="script.js"></script>
+</body>
+</html>
