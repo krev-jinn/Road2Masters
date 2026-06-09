@@ -87,11 +87,11 @@ const domainIcons = {
 
 
 const domainImages = {
-  web:    "web.png",
-  ai:     "ai.png",
-  cyber:  "cyber.png",
-  data:   "data.png",
-  mobile: "mobile.png"
+  web:    "assets/images/web.png",
+  ai:     "assets/images/ai.png",
+  cyber:  "assets/images/cyber.png",
+  data:   "assets/images/data.png",
+  mobile: "assets/images/mobile.png"
 };
 
 // ── ROADMAP DATA ──────────────────────
