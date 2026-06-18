@@ -422,4 +422,24 @@ body {
   }
 }
 
-
+@media (max-width: 480px) {
+  .splash-domain-grid {
+    grid-template-columns: 1fr;
+  }
+  .form-headline {
+    font-size: 32px;
+  }
+  .splash-hero {
+    height: 150px;
+  }
+  .splash-hero-overlay h2 {
+    font-size: 18px;
+  }
+  .modal-box {
+    width: 95%;
+    padding: 15px;
+  }
+  .mc-actions {
+    flex-direction: column;
+  }
+}
