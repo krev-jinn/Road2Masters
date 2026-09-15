@@ -51,7 +51,7 @@ body {
   transition: background .25s, color .25s;
 }
 
-/* ══ LOGIN PAGE ══ */
+/* -- LOGIN PAGE -- */
 #formPage {
   min-height: 100vh;
   display: flex; align-items: center; justify-content: center;
