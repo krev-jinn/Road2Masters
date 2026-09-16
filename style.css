@@ -124,7 +124,7 @@ body {
 .nav-link:hover, .nav-link.active { color: var(--text-primary); background: var(--bg-elevated); }
 .header-right { display: flex; align-items: center; gap: 10px; }
 
-/* Theme toggle */
+/* Toggle theme */
 .theme-toggle {
   width: 32px; height: 32px; border-radius: 6px;
   background: var(--bg-elevated); border: 1px solid var(--border);
