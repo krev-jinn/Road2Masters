@@ -1,6 +1,6 @@
 
 /* ════════════════════════════════════════
-   script.js — Road2Masters (Firebase integrated)
+   script.js — Road2Masters 
 ════════════════════════════════════════ */
 
 // ── FIREBASE SETUP ────────────────────
