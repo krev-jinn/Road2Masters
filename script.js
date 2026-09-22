@@ -1,7 +1,7 @@
 
-/* ════════════════════════════════════════
+/* ════════════════════════════════════════════════════
    script.js — Road2Masters (Integrated with Firebase)
-════════════════════════════════════════ */
+═══════════════════════════════════════════════════════ */
 
 // ── FIREBASE SETUP ────────────────────
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
