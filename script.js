@@ -1,4 +1,3 @@
-
 /* ════════════════════════════════════════════════════
    script.js — Road2Masters (Integrated with Firebase)
 ═══════════════════════════════════════════════════════ */
@@ -314,32 +313,35 @@ async function submitQuery() {
   const text = document.getElementById("queryText").value.trim();
   if (!text) return;
   const name = document.getElementById("queryName").value.trim() || "Anonymous";
+  const msg = document.getElementById("queryMsg");
 
   try {
     await addDoc(collection(db, "doubts"), {
       name, topic: currentDoubtTopic, question: text,
       submittedAt: serverTimestamp(), answered: false
     });
-    console.log("Doubt saved to Firebase");
+    msg.textContent = "Submitted! Mentor will respond soon.";
+    msg.style.color = "";
+    document.getElementById("queryText").value = "";
+    document.getElementById("queryName").value = "";
   } catch (e) {
     console.error("Firebase doubt error:", e);
-    const all = JSON.parse(localStorage.getItem("queries") || "[]");
-    all.push({ name, text, time: new Date().toISOString() });
-    localStorage.setItem("queries", JSON.stringify(all));
+    msg.textContent = "Could not submit. Please try again.";
+    msg.style.color = "#e06060";
   }
-
-  document.getElementById("queryText").value = "";
-  document.getElementById("queryName").value = "";
-  const msg = document.getElementById("queryMsg");
   msg.style.display = "inline";
   setTimeout(() => (msg.style.display = "none"), 3000);
 }
 window.submitQuery = submitQuery;
 
 // ── LOAD DOMAIN ───────────────────────
+let currentDomain = "";
+
 function loadDomain(domain) {
   const data = roadmaps[domain];
   if (!data) return;
+  currentDomain = domain;
+  const savedDone = JSON.parse(localStorage.getItem("prog::" + domain) || "[]");
 
   document.querySelectorAll(".domain-item").forEach(el => el.classList.remove("active"));
   document.querySelector(`[data-domain="${domain}"]`).classList.add("active");
@@ -399,7 +401,7 @@ function loadDomain(domain) {
       content.appendChild(card);
 
       const todo = document.createElement("div");
-      todo.className = "todo-item";
+      todo.className = "todo-item" + (savedDone.includes(item.topic) ? " checked" : "");
       todo.onclick = function () { toggleTodo(this); };
       todo.innerHTML = `<div class="todo-check">&#10003;</div><span class="todo-text">${item.topic}</span>`;
       todoList.appendChild(todo);
@@ -421,8 +423,13 @@ function updateProgress() {
   document.getElementById("circlePercent").textContent = pct + "%";
 }
 
-function toggleTodo(el)  { el.classList.toggle("checked"); updateProgress(); }
-function resetProgress() { document.querySelectorAll(".todo-item").forEach(el => el.classList.remove("checked")); updateProgress(); }
+function saveProgress() {
+  if (!currentDomain) return;
+  const done = [...document.querySelectorAll(".todo-item.checked .todo-text")].map(e => e.textContent);
+  localStorage.setItem("prog::" + currentDomain, JSON.stringify(done));
+}
+function toggleTodo(el)  { el.classList.toggle("checked"); updateProgress(); saveProgress(); }
+function resetProgress() { document.querySelectorAll(".todo-item").forEach(el => el.classList.remove("checked")); updateProgress(); saveProgress(); }
 window.toggleTodo    = toggleTodo;
 window.resetProgress = resetProgress;
 
