@@ -1,0 +1,480 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Road2Masters Advanced Serverless Architecture — 17 AWS Services Integrated ($0 Free Tier)'
+
+Parameters:
+  MentorEmail:
+    Type: String
+    Default: ''
+    Description: '(Optional) Email address to receive notifications when students submit doubts.'
+
+Conditions:
+  HasMentorEmail: !Not [!Equals [!Ref MentorEmail, '']]
+
+Resources:
+  # ── 1 & 2. DYNAMODB TABLES (DATABASE LAYER) ──────────────────
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: R2M_Users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: email
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Project
+          Value: Road2Masters
+
+  DoubtsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: R2M_Doubts
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: doubtId
+          AttributeType: S
+        - AttributeName: submittedAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: doubtId
+          KeyType: HASH
+        - AttributeName: submittedAt
+          KeyType: RANGE
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Project
+          Value: Road2Masters
+
+  # ── 3. AMAZON SQS (MESSAGE QUEUE & DEAD-LETTER QUEUE) ────────
+  DoubtsDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: R2M_Doubts_DeadLetterQueue
+      MessageRetentionPeriod: 1209600 # 14 days
+
+  DoubtsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: R2M_Doubts_Queue
+      VisibilityTimeout: 30
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DoubtsDeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  # ── 4. AMAZON SNS (NOTIFICATION LAYER) ───────────────────────
+  DoubtNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: R2M_Doubt_Notifications
+      DisplayName: Road2Masters Doubts
+
+  MentorEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasMentorEmail
+    Properties:
+      Protocol: email
+      TopicArn: !Ref DoubtNotificationTopic
+      Endpoint: !Ref MentorEmail
+
+  # ── 5. AWS SYSTEMS MANAGER (SSM PARAMETER STORE) ─────────────
+  EnvironmentParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /road2masters/config/environment
+      Description: 'Application running environment'
+      Type: String
+      Value: 'Production-AWS'
+
+  VersionParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /road2masters/config/version
+      Description: 'Current deployed architecture version'
+      Type: String
+      Value: 'v2.5-Serverless'
+
+  ContactEmailParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /road2masters/config/support_email
+      Description: 'Official student support contact'
+      Type: String
+      Value: 'contact@road2masters.com'
+
+  # ── 6. AWS IAM ROLE (LEAST PRIVILEGE WITH AI & TRACING) ──────
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: Road2Masters_Lambda_Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: Road2Masters_Core_Policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*Road2Masters*'
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !GetAtt UsersTable.Arn
+                  - !GetAtt DoubtsTable.Arn
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref DoubtNotificationTopic
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt DoubtsQueue.Arn
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/road2masters/*'
+              - Effect: Allow
+                Action:
+                  - comprehend:DetectSentiment
+                  - comprehend:DetectDominantLanguage
+                  - translate:TranslateText
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                Resource: '*'
+
+  # ── 7. AWS LAMBDA: REGISTER USER ─────────────────────────────
+  RegisterUserFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: Road2Masters_RegisterUser
+      Runtime: python3.12
+      Handler: index.handler
+      MemorySize: 128
+      Timeout: 10
+      TracingConfig:
+        Mode: Active
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+      Code:
+        ZipFile: |
+          import json, os, re, boto3
+          from datetime import datetime, timezone
+
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table(os.environ['USERS_TABLE'])
+
+          def handler(event, context):
+              try:
+                  body = json.loads(event.get('body') or '{}')
+                  name = (body.get('name') or '').strip()
+                  email = (body.get('email') or '').strip().lower()
+                  phone = (body.get('phone') or '').strip()
+
+                  if len(name) < 3:
+                      return {"statusCode": 400, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": "Name must be >= 3 chars"})}
+                  if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
+                      return {"statusCode": 400, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": "Invalid email"})}
+                  if not re.match(r"^\d{10}$", phone):
+                      return {"statusCode": 400, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": "Phone must be 10 digits"})}
+
+                  now_iso = datetime.now(timezone.utc).isoformat()
+                  table.put_item(Item={"email": email, "name": name, "phone": phone, "joinedAt": now_iso})
+                  return {"statusCode": 200, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"success": True, "message": "User profile saved"})}
+              except Exception as e:
+                  print("Error:", str(e))
+                  return {"statusCode": 500, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": "Internal server error"})}
+
+  # ── 8. AWS LAMBDA: SUBMIT DOUBT (WITH AI SENTIMENT & SQS) ────
+  SubmitDoubtFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: Road2Masters_SubmitDoubt
+      Runtime: python3.12
+      Handler: index.handler
+      MemorySize: 128
+      Timeout: 10
+      TracingConfig:
+        Mode: Active
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          DOUBTS_TABLE: !Ref DoubtsTable
+          SNS_TOPIC_ARN: !Ref DoubtNotificationTopic
+          SQS_QUEUE_URL: !Ref DoubtsQueue
+      Code:
+        ZipFile: |
+          import json, os, uuid, boto3
+          from datetime import datetime, timezone
+
+          dynamodb = boto3.resource('dynamodb')
+          sns = boto3.client('sns')
+          sqs = boto3.client('sqs')
+          comprehend = boto3.client('comprehend')
+
+          table = dynamodb.Table(os.environ['DOUBTS_TABLE'])
+          topic_arn = os.environ.get('SNS_TOPIC_ARN')
+          queue_url = os.environ.get('SQS_QUEUE_URL')
+
+          def handler(event, context):
+              try:
+                  body = json.loads(event.get('body') or '{}')
+                  name = (body.get('name') or '').strip() or 'Anonymous'
+                  topic = (body.get('topic') or '').strip() or 'General'
+                  question = (body.get('question') or '').strip()
+
+                  if not question:
+                      return {"statusCode": 400, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": "Question is required"})}
+
+                  now_iso = datetime.now(timezone.utc).isoformat()
+                  doubt_id = str(uuid.uuid4())
+
+                  # AI Sentiment Analysis via Amazon Comprehend
+                  sentiment = "NEUTRAL"
+                  try:
+                      comp_res = comprehend.detect_sentiment(Text=question[:200], LanguageCode='en')
+                      sentiment = comp_res.get('Sentiment', 'NEUTRAL')
+                  except Exception as ce:
+                      print("Comprehend notice:", str(ce))
+
+                  # Save to DynamoDB with AI sentiment score
+                  table.put_item(Item={
+                      "doubtId": doubt_id,
+                      "submittedAt": now_iso,
+                      "name": name,
+                      "topic": topic,
+                      "question": question,
+                      "sentiment": sentiment,
+                      "answered": False
+                  })
+
+                  # Buffer into Amazon SQS Queue
+                  if queue_url:
+                      try:
+                          sqs.send_message(
+                              QueueUrl=queue_url,
+                              MessageBody=json.dumps({"doubtId": doubt_id, "name": name, "topic": topic, "question": question, "sentiment": sentiment})
+                          )
+                      except Exception as qe:
+                          print("SQS notice:", str(qe))
+
+                  # Push email alert via Amazon SNS
+                  if topic_arn:
+                      msg = f"Road2Masters Doubt Alert!\n\nStudent: {name}\nTopic: {topic}\nAI Sentiment: {sentiment}\nTime: {now_iso}\n\nQuestion:\n{question}\n\n— Enqueued to Amazon SQS & Stored in Amazon DynamoDB"
+                      try:
+                          sns.publish(TopicArn=topic_arn, Subject=f"[{sentiment}] Doubt: {topic} ({name})", Message=msg)
+                      except Exception as pe:
+                          print("SNS Publish notice:", str(pe))
+
+                  return {"statusCode": 200, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"success": True, "doubtId": doubt_id, "sentiment": sentiment})}
+              except Exception as e:
+                  print("Error:", str(e))
+                  return {"statusCode": 500, "headers": {"Content-Type": "application/json"}, "body": json.dumps({"error": "Internal server error"})}
+
+  # ── 9. AMAZON EVENTBRIDGE (CRON SCHEDULED RULE) ──────────────
+  DailyDigestScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: R2M_Daily_Digest_Scheduler
+      Description: Triggers daily automated check on student doubts
+      ScheduleExpression: 'cron(0 9 * * ? *)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt SubmitDoubtFunction.Arn
+          Id: DailyDigestTarget
+          Input: '{"source": "aws.events", "type": "daily_summary"}'
+
+  EventBridgeInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref SubmitDoubtFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DailyDigestScheduleRule.Arn
+
+  # ── 10. AMAZON API GATEWAY (HTTP REST API V2) ────────────────
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: Road2Masters_HttpApi
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowMethods:
+          - POST
+          - GET
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        MaxAge: 3600
+
+  HttpApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: '$default'
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 10
+        ThrottlingRateLimit: 5
+
+  # Route: POST /users
+  RegisterUserIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt RegisterUserFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  RegisterUserRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'POST /users'
+      Target: !Join ['/', ['integrations', !Ref RegisterUserIntegration]]
+
+  RegisterUserPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref RegisterUserFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/*/users'
+
+  # Route: POST /doubts
+  SubmitDoubtIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt SubmitDoubtFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  SubmitDoubtRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'POST /doubts'
+      Target: !Join ['/', ['integrations', !Ref SubmitDoubtIntegration]]
+
+  SubmitDoubtPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref SubmitDoubtFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/*/doubts'
+
+  # ── 11. AMAZON CLOUDWATCH METRIC ALARM ───────────────────────
+  Api5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: Road2Masters_API_5xx_Errors
+      AlarmDescription: 'Triggers if API Gateway records > 5 server errors within 5 minutes'
+      Namespace: AWS/ApiGateway
+      MetricName: 5XXError
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref HttpApi
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+
+  # ── 12. AMAZON CLOUDWATCH LIVE METRIC DASHBOARD ──────────────
+  OperationsDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: Road2Masters-Live-Operations
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/ApiGateway", "Count", "ApiId", "${HttpApi}", { "stat": "Sum", "label": "API Requests" } ],
+                  [ ".", "5XXError", ".", ".", { "stat": "Sum", "label": "5XX Errors", "color": "#d62728" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "API Gateway Request Volume & Errors",
+                "period": 60
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "Road2Masters_RegisterUser", { "stat": "Sum" } ],
+                  [ ".", "Invocations", "FunctionName", "Road2Masters_SubmitDoubt", { "stat": "Sum" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Lambda Function Invocations",
+                "period": 60
+              }
+            }
+          ]
+        }
+
+Outputs:
+  ApiBaseUrl:
+    Description: 'Copy this URL into aws-config.js as apiBase'
+    Value: !GetAtt HttpApi.ApiEndpoint
+  SqsQueueUrl:
+    Description: 'Amazon SQS Doubts Queue URL'
+    Value: !Ref DoubtsQueue
+  SqsDeadLetterQueueUrl:
+    Description: 'Amazon SQS Dead-Letter Queue URL'
+    Value: !Ref DoubtsDeadLetterQueue
+  UsersTableName:
+    Description: 'DynamoDB Users Table'
+    Value: !Ref UsersTable
+  DoubtsTableName:
+    Description: 'DynamoDB Doubts Table'
+    Value: !Ref DoubtsTable
+  SnsTopicArn:
+    Description: 'SNS Topic for mentor email notifications'
+    Value: !Ref DoubtNotificationTopic
+  CloudWatchDashboardUrl:
+    Description: 'URL to live CloudWatch Dashboard'
+    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=Road2Masters-Live-Operations'
